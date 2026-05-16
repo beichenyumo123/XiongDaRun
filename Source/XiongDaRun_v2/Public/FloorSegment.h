@@ -11,6 +11,8 @@ class UBoxComponent;
 class UBoxComponent;
 class ACoin;
 class AObstacleBase;
+class UHierarchicalInstancedStaticMeshComponent; // 引入 HISM 组件
+
 UCLASS()
 class XIONGDARUN_V2_API AFloorSegment : public AActor
 {
@@ -40,6 +42,15 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UBoxComponent* TriggerBox;
 
+	// --- 修改：支持多种森林环境装饰 (动态 HISM) ---
+	// 在蓝图中配置多种模型（不同种类的树、石头、草丛）
+	UPROPERTY(EditAnywhere, Category = "Environment")
+	TArray<class UStaticMesh*> EnvironmentMeshes;
+
+	// 运行时动态生成的 HISM 组件列表（不需要暴露给蓝图）
+	UPROPERTY()
+	TArray<UHierarchicalInstancedStaticMeshComponent*> EnvironmentHISMs;
+
 	// 获取当前跑道末端的位置（世界坐标和旋转）
 	UFUNCTION(BlueprintCallable, Category = "Floor")
 	FTransform GetAttachTransform() const;
@@ -68,6 +79,15 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Spawner")
 	float FloorLength = 1000.0f;
 
+	// --- 森林生成配置 ---
+	UPROPERTY(EditAnywhere, Category = "Environment")
+	int32 TreesPerSide = 4; // 每侧生成几棵树
+
+	UPROPERTY(EditAnywhere, Category = "Environment")
+	float TreeSpawnOffset = 600.0f; // 树木距离跑道中心的距离 (Y轴偏移)
+
+	// 生成两侧树木的函数
+	void SpawnEnvironment();
 
 public: // <-- 注意这里，我们要把 SpawnItems 移到 public 下，让 GameMode 能调用它
 	// 带有安全区参数的生成逻辑
