@@ -8,17 +8,54 @@
 
 class UBoxComponent;
 // 前向声明金币类
-class UBoxComponent;
 class ACoin;
 class AObstacleBase;
+class AMagnetItem; // 前向声明磁铁
 class UHierarchicalInstancedStaticMeshComponent; // 引入 HISM 组件
+
+// --- 新增：定义轨道上可生成的物品类型 ---
+UENUM(BlueprintType)
+enum class ESpawnItemType : uint8
+{
+	None       UMETA(DisplayName = "空 (Empty)"),
+	Coin       UMETA(DisplayName = "金币 (Coin)"),
+	Obstacle   UMETA(DisplayName = "障碍物 (Obstacle)"),
+	Magnet     UMETA(DisplayName = "吸铁石 (Magnet)") // <-- 新增磁铁类型，允许我们在区块剧本里直接配置
+};
+// --- 新增：定义一排的生成阵型 ---
+USTRUCT(BlueprintType)
+struct FRowSpawnPattern
+{
+	GENERATED_BODY()
+
+	// 规定长度必须是3，分别对应 左、中、右 轨道
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pattern")
+	TArray<ESpawnItemType> LaneItems;
+
+	FRowSpawnPattern()
+	{
+		// 默认初始化为3个空位
+		LaneItems.Init(ESpawnItemType::None, 3);
+	}
+};
+
+// --- 核心升级：定义一个区块（连续多排）的预制件 ---
+USTRUCT(BlueprintType)
+struct FChunkSpawnPattern
+{
+	GENERATED_BODY()
+
+	// 包含连续多排的阵型（比如可以配置成一个 S型金币轨迹 或 跨栏组合）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pattern")
+	TArray<FRowSpawnPattern> Rows;
+};
 
 UCLASS()
 class XIONGDARUN_V2_API AFloorSegment : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	AFloorSegment();
 
@@ -26,7 +63,7 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
@@ -63,12 +100,17 @@ protected:
 
 	// --- 物品生成配置 ---
 
+	// --- 修改：改用金币类数组，支持在编辑器中配置多种不同样式的金币（铜、银、金等） ---
 	UPROPERTY(EditAnywhere, Category = "Spawner")
-	class TSubclassOf<ACoin> CoinClass;
+	TArray<TSubclassOf<ACoin>> CoinClasses;
 
 	// 新增：让蓝图配置生成哪种障碍物
 	UPROPERTY(EditAnywhere, Category = "Spawner")
 	TArray<TSubclassOf<AObstacleBase>> ObstacleClasses;
+
+	// --- 新增：让蓝图配置吸铁石道具类 ---
+	UPROPERTY(EditAnywhere, Category = "Spawner")
+	TSubclassOf<AMagnetItem> MagnetClass;
 
 	UPROPERTY(EditAnywhere, Category = "Spawner")
 	float LaneWidth = 270.0f;
@@ -78,6 +120,14 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Spawner")
 	float FloorLength = 1000.0f;
+
+	// --- 修改：允许蓝图配置的安全区块阵型库 ---
+	UPROPERTY(EditAnywhere, Category = "Spawner|Patterns")
+	TArray<FChunkSpawnPattern> ChunkPatterns;
+
+	// --- 新增：允许蓝图配置的安全阵型库 ---
+	UPROPERTY(EditAnywhere, Category = "Spawner|Patterns")
+	TArray<FRowSpawnPattern> SafePatterns;
 
 	// --- 森林生成配置 ---
 	UPROPERTY(EditAnywhere, Category = "Environment")

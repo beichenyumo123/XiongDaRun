@@ -5,39 +5,83 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/SphereComponent.h"
+#include "Camera/CameraShakeBase.h"
+#include "Coin.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "EngineUtils.h"
+#include "TimerManager.h"
+#include "Curves/CurveFloat.h" // éš¾åº¦æ›²çº¿æ”¯æŒ
 
 // Sets default values
 ARunner::ARunner()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// ï¿½ï¿½ï¿½ï¿½ Tick ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È¡ï¿½FOVï¿½ï¿½ï¿½ï¿½É½Ê±ï¿½î¡¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	PrimaryActorTick.bCanEverTick = true;
-	// Ä¬ÈÏ²ÎÊı³õÊ¼»¯
-	CurrentLane = 1;         // Ä¬ÈÏÔÚÖĞ¼ä¹ìµÀ
-	LaneWidth = 270.0f;      // ¼ÙÉè¹ìµÀ¼ä¾àÊÇ 400 ÀåÃ×£¬¸ù¾İÄãµÄÅÜµÀµ÷Õû
-	SwitchLaneInterpSpeed = 15.0f; // ²åÖµËÙ¶È£¬Ô½´ó±äµÀÔ½¿ì
-	TargetY = 0.0f;
-	ForwardRunSpeed = 1.0f; // Ä¬ÈÏ¸øÂúÊäÈëÖµ
 
-	// --- 1. ÅäÖÃµ¯»É±Û (Spring Arm) ---
+	// Ä¬ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½
+	CurrentLane = 1;         // Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¼ï¿½ï¿½ï¿½
+	LaneWidth = 270.0f;      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½×¼Öµ
+	SwitchLaneInterpSpeed = 15.0f; // ï¿½ï¿½Ê¼ï¿½ï¿½Öµï¿½Ù¶ï¿½
+	InitialSwitchLaneInterpSpeed = SwitchLaneInterpSpeed;
+	TargetY = 0.0f;
+	ForwardRunSpeed = 1.0f; // Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+
+	// --- 1. ï¿½ï¿½ï¿½Ãµï¿½ï¿½É±ï¿½ (Spring Arm) ---
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f; // ÉãÏñ»ú¾àÀë½ÇÉ«µÄ¾àÀë
-	CameraBoom->bUsePawnControlRotation = false; // ÅÜ¿áÓÎÏ·²»ĞèÒªÊó±ê¿ØÖÆÊÓ½Ç
-	CameraBoom->SetRelativeRotation(FRotator(-15.0f, 0.0f, 0.0f)); // ÈÃÉãÏñ»úÉÔÎ¢ÏòÏÂÇãĞ±¿´½ÇÉ«
+	CameraBoom->TargetArmLength = 400.0f; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½Ä¾ï¿½ï¿½ï¿½
+	CameraBoom->bUsePawnControlRotation = false; // ï¿½Ü¿ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó½ï¿½
+	CameraBoom->SetRelativeRotation(FRotator(-15.0f, 0.0f, 0.0f)); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î¢ï¿½ï¿½ï¿½Â¸ï¿½ï¿½ï¿½
 
-	// --- 2. ÅäÖÃÉãÏñ»ú (Camera) ---
+	// --- 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (Camera) ---
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // ¹ÒÔØµ½µ¯»É±ÛµÄÄ©¶Ë
-	FollowCamera->bUsePawnControlRotation = false; // ÉãÏñ»ú×ÔÉí²»¸úËæ¿ØÖÆÆ÷Ğı×ª
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // ï¿½ï¿½ï¿½Øµï¿½ï¿½ï¿½ï¿½É±Ûµï¿½Ä©ï¿½ï¿½
+	FollowCamera->bUsePawnControlRotation = false;
 
-	// --- 3. ÅäÖÃ½ÇÉ«ÒÆ¶¯Ï¸½Ú (ÓÅ»¯ÅÜ¿áÊÖ¸Ğ) ---
-	// È·±£½ÇÉ«ÓÀÔ¶³¯ÏòÔË¶¯·½Ïò
+	// --- 3. ï¿½ï¿½ï¿½Ã½ï¿½É«ï¿½Æ¶ï¿½Ï¸ï¿½ï¿½ ---
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 800.0f, 0.0f);
-	// ·ÀÖ¹½ÇÉ«ÒòÎª¿ØÖÆÆ÷(±ÈÈçÊó±ê)ÒâÍâ×ª¶¯
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
+
+	// --- 4. ï¿½ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---
+	MagnetSphere = CreateDefaultSubobject<USphereComponent>(TEXT("MagnetSphere"));
+	MagnetSphere->SetupAttachment(RootComponent);
+	MagnetSphere->SetSphereRadius(MagnetRadius);
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×²ï¿½Í¼ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Øµï¿½É¨ï¿½ï¿½
+	MagnetSphere->SetCollisionProfileName(TEXT("NoCollision"));
+	MagnetSphere->SetGenerateOverlapEvents(false);
+
+	// --- 5. ï¿½ï¿½Ì¬ï¿½Ñ¶ï¿½ï¿½ë·´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ ---
+	MinSpeedLimit = 700.0f;
+	MaxSpeedLimit = 1800.0f;
+	SpeedAccelerationRate = 18.0f; // Ã¿ï¿½ï¿½ï¿½ 18 ï¿½ï¿½ï¿½×µï¿½ï¿½Ù¶ï¿½
+	CurrentMaxWalkSpeed = MinSpeedLimit;
+
+	BaseFOV = 90.0f;
+	MaxSpeedFOV = 110.0f;
+
+	ScorePerMeter = 10;
+	ScorePerCoinUnit = 100;
+	AccumulativeCoinScore = 0;
+
+	// --- 6. ï¿½ï¿½ï¿½ã¡¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Ê¼ï¿½ï¿½ ---
+	CameraLeanSensitivity = 0.025f;
+	MaxCameraLeanRoll = 6.0f;
+	CameraLeanInterpSpeed = 8.0f;
+
+	CurrentComboCount = 0;
+	ComboValidWindow = 2.0f;
+
+	bIsFeverModeActive = false;
+	FeverModeDuration = 5.0f;
+	FeverComboThreshold = 10;
 }
 
 // Called when the game starts or when spawned
@@ -45,6 +89,85 @@ void ARunner::BeginPlay()
 {
 	Super::BeginPlay();
 	TargetY = GetActorLocation().Y;
+	StartX = GetActorLocation().X; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ã£¬ï¿½ï¿½ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½Ü¿ï¿½ï¿½ï¿½ï¿½
+
+	// ï¿½è¶¨ï¿½ï¿½Ê¼ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->MaxWalkSpeed = MinSpeedLimit;
+	}
+
+	// ï¿½ó¶¨´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½ï¿½Øµï¿½
+	if (MagnetSphere)
+	{
+		MagnetSphere->OnComponentBeginOverlap.AddDynamic(this, &ARunner::OnMagnetSphereOverlap);
+	}
+
+	// =========================================================================
+	// èƒŒæ™¯å±±è„‰æœç´¢é€»è¾‘ - ä¿®å¤Bugå¹¶ä¼˜åŒ–æ€§èƒ½
+	// 1. ä¼˜å…ˆé€šè¿‡æ ‡ç­¾æœç´¢ï¼Œæ‰¾ä¸åˆ°å†æŒ‰åç§°æœç´¢
+	// 2. æ‰€æœ‰æ‰¾åˆ°çš„Actoréƒ½ä¼šè¢«æ­£ç¡®èµ‹å€¼å’Œè®¾ç½®Mobility
+	// 3. ç¼“å­˜æ ¹ç»„ä»¶æŒ‡é’ˆé¿å…æ¯å¸§é‡å¤è·å–
+	// =========================================================================
+	BackgroundActors.Empty();
+	CachedBackgroundRootComponents.Empty();
+	TArray<AActor*> FoundActors;
+
+	// 1. ä¼˜å…ˆæœç´¢å¸¦æœ‰ "Background" æ ‡ç­¾çš„ Actorï¼ˆæœ€é«˜ä¼˜å…ˆçº§ï¼‰
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("Background"), FoundActors);
+
+	// 2. å¦‚æœæ ‡ç­¾æœªæ‰¾åˆ°ï¼Œå†é€šè¿‡åç§°/ç½‘æ ¼åç§°æœç´¢ StaticMeshActor
+	if (FoundActors.Num() == 0)
+	{
+		for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+		{
+			AStaticMeshActor* SMActor = *It;
+			if (!SMActor) continue;
+
+#if WITH_EDITOR
+			FString CheckedActorLabel = SMActor->GetActorLabel();
+			if (CheckedActorLabel.Contains(TEXT("Mountain")) || CheckedActorLabel.Contains(TEXT("Background")))
+			{
+				FoundActors.Add(SMActor);
+				continue;
+			}
+#endif
+
+			FString ActorName = SMActor->GetName();
+			if (ActorName.Contains(TEXT("Mountain")) || ActorName.Contains(TEXT("Background")))
+			{
+				FoundActors.Add(SMActor);
+				continue;
+			}
+
+			if (SMActor->GetStaticMeshComponent())
+			{
+				UStaticMesh* StaticMeshAsset = SMActor->GetStaticMeshComponent()->GetStaticMesh();
+				if (StaticMeshAsset)
+				{
+					FString MeshName = StaticMeshAsset->GetName();
+					if (MeshName.Contains(TEXT("Mountain")) || MeshName.Contains(TEXT("Background")))
+					{
+						FoundActors.Add(SMActor);
+					}
+				}
+			}
+		}
+	}
+
+	// 3. ç»Ÿä¸€èµ‹å€¼å¹¶è®¾ç½®Mobilityï¼ˆä¿®å¤Bugï¼šä¹‹å‰åªæœ‰æ ‡ç­¾æœç´¢ä¸ºç©ºæ—¶æ‰æ‰§è¡Œï¼‰
+	BackgroundActors = FoundActors;
+
+	for (AActor* BgActor : BackgroundActors)
+	{
+		if (BgActor && BgActor->GetRootComponent())
+		{
+			BgActor->GetRootComponent()->SetMobility(EComponentMobility::Movable);
+			// ç¼“å­˜æ ¹ç»„ä»¶æŒ‡é’ˆï¼Œé¿å…Tickä¸­æ¯å¸§é‡å¤è·å–
+			CachedBackgroundRootComponents.Add(BgActor->GetRootComponent());
+		}
+	}
+
 }
 
 // Called every frame
@@ -56,17 +179,132 @@ void ARunner::Tick(float DeltaTime)
 		return;
 	}
 
-	// --- ×Ô¶¯ÏòÇ°±¼ÅÜÂß¼­ ---
+	// =========================================================================
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Æ£ï¿½ï¿½ï¿½Ì¬ï¿½Ñ¶ï¿½ï¿½Ù¶ï¿½ï¿½ï¿½ï¿½ß¡ï¿½
+	// =========================================================================
+	// --- é€Ÿåº¦æ›´æ–°ï¼šæ”¯æŒçº¿æ€§åŠ é€Ÿåº¦ æˆ– éš¾åº¦æ›²çº¿ ---
+	if (bUseDifficultyCurve && DifficultyCurve)
+	{
+		// æ ¹æ®è¯„ä¼°æ¨¡å¼é€‰æ‹©è¾“å…¥å€¼
+		float CurveInput = 0.0f;
+		if (SpeedCurveMode == ESpeedCurveMode::Distance)
+		{
+			// åŸºäºè·ç¦»ï¼ˆç±³ï¼‰è¯„ä¼°æ›²çº¿
+			CurveInput = DistanceMeters * CurveTimeScale + CurveTimeOffset;
+		}
+		else
+		{
+			// åŸºäºæ—¶é—´ï¼ˆç§’ï¼‰è¯„ä¼°æ›²çº¿
+			CurveInput = GetWorld()->GetTimeSeconds() * CurveTimeScale + CurveTimeOffset;
+		}
+
+		float SpeedMultiplier = DifficultyCurve->GetFloatValue(CurveInput);
+		SpeedMultiplier = FMath::Clamp(SpeedMultiplier, 0.0f, 1.0f);
+
+		// æ ¹æ®æ›²çº¿å€¼è®¡ç®—ç›®æ ‡é€Ÿåº¦
+		float TargetSpeed = FMath::Lerp(MinSpeedLimit, MaxSpeedLimit, SpeedMultiplier);
+
+		// å¹³æ»‘æ’å€¼åˆ°ç›®æ ‡é€Ÿåº¦ï¼Œé¿å…çªå˜
+		CurrentMaxWalkSpeed = FMath::FInterpTo(CurrentMaxWalkSpeed, TargetSpeed, DeltaTime, CurveInterpSpeed);
+	}
+	else
+	{
+		// ä½¿ç”¨çº¿æ€§åŠ é€Ÿåº¦ï¼ˆåŸæœ‰é€»è¾‘ï¼‰
+		CurrentMaxWalkSpeed = FMath::Min(CurrentMaxWalkSpeed + SpeedAccelerationRate * DeltaTime, MaxSpeedLimit);
+	}
+
+	// --- ç‹‚æš´æ¨¡å¼é€Ÿåº¦çˆ†å‘ ---
+	float EffectiveSpeed = CurrentMaxWalkSpeed;
+	if (bIsFeverModeActive)
+	{
+		EffectiveSpeed = CurrentMaxWalkSpeed * FeverSpeedBoostMultiplier;
+	}
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->MaxWalkSpeed = EffectiveSpeed;
+	}
+
+	// =========================================================================
+	// ï¿½ï¿½ï¿½Ó¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ FOV ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½
+	// =========================================================================
+	float SpeedRatio = (CurrentMaxWalkSpeed - MinSpeedLimit) / (MaxSpeedLimit - MinSpeedLimit);
+	SpeedRatio = FMath::Clamp(SpeedRatio, 0.0f, 1.0f);
+
+	float TargetFOV = FMath::Lerp(BaseFOV, MaxSpeedFOV, SpeedRatio);
+
+	// --- ç‹‚æš´æ¨¡å¼FOVçˆ†å‘ ---
+	if (bIsFeverModeActive)
+	{
+		TargetFOV = FeverFOVBoost;
+	}
+
+	if (FollowCamera)
+	{
+		// Feveræ¨¡å¼ä¸‹æ›´å¿«çš„FOVè·Ÿéšé€Ÿåº¦ï¼Œæ¿€æ´»ç¬é—´æœ‰çˆ†å‘æ„Ÿ
+		float FOVInterpSpeed = bIsFeverModeActive ? 8.0f : 2.0f;
+		FollowCamera->FieldOfView = FMath::FInterpTo(FollowCamera->FieldOfView, TargetFOV, DeltaTime, FOVInterpSpeed);
+	}
+
+	// =========================================================================
+	// ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½Å»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½
+	// =========================================================================
+	float DynamicInterpSpeed = InitialSwitchLaneInterpSpeed * (CurrentMaxWalkSpeed / MinSpeedLimit);
+	DynamicInterpSpeed = FMath::Clamp(DynamicInterpSpeed, InitialSwitchLaneInterpSpeed, InitialSwitchLaneInterpSpeed * 1.5f);
+
+	// --- ï¿½Ô¶ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ ---
 	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), ForwardRunSpeed);
-	
-	// --- Æ½»¬±äµÀÂß¼­ ---
+
+	// --- Æ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ ---
 	FVector CurrentLocation = GetActorLocation();
 
-	// Ê¹ÓÃ FMath::FInterpTo ÈÃµ±Ç°µÄ Y ×ø±êÆ½»¬¹ı¶Éµ½ TargetY
-	float NewY = FMath::FInterpTo(CurrentLocation.Y, TargetY, DeltaTime, SwitchLaneInterpSpeed);
-
-	// ¸üĞÂ½ÇÉ«Î»ÖÃ¡£bSweep=true ÒâÎ¶×ÅÈç¹û±äµÀÍ¾ÖĞ×²µ½Ç½»á±»µ²×¡
+	float NewY = FMath::FInterpTo(CurrentLocation.Y, TargetY, DeltaTime, DynamicInterpSpeed);
 	SetActorLocation(FVector(CurrentLocation.X, NewY, CurrentLocation.Z), true);
+
+	// =========================================================================
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã£¨Camera Leanï¿½ï¿½ï¿½ï¿½
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Æ²ï¿½Ô½ï¿½ï¿½ï¿½ï¿½ï¿½ Roll ï¿½ï¿½Æ«×ªï¿½Ç¶ï¿½Ô½ï¿½ï¿½Î»ï¿½ï¿½Æ½Ï¢ï¿½ï¿½ Roll ï¿½Ö¸ï¿½ï¿½ï¿½
+	// =========================================================================
+	if (CameraBoom)
+	{
+		float YDifference = TargetY - CurrentLocation.Y;
+		// Æ«×ªï¿½ï¿½Ê½
+		float DesiredRoll = -YDifference * CameraLeanSensitivity;
+		DesiredRoll = FMath::Clamp(DesiredRoll, -MaxCameraLeanRoll, MaxCameraLeanRoll);
+
+		FRotator CurrentBoomRot = CameraBoom->GetRelativeRotation();
+		float SmoothRoll = FMath::FInterpTo(CurrentBoomRot.Roll, DesiredRoll, DeltaTime, CameraLeanInterpSpeed);
+
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Rollï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô­ï¿½Ğµï¿½ Pitch
+		CameraBoom->SetRelativeRotation(FRotator(CurrentBoomRot.Pitch, CurrentBoomRot.Yaw, SmoothRoll));
+	}
+
+	// =========================================================================
+	// ï¿½ï¿½ï¿½ï¿½ï¿½İ½ï¿½ï¿½ã£ºï¿½Ü¿ï¿½ï¿½ï¿½ï¿½ÊµÊ±ï¿½ï¿½ï¿½ã¡¿
+	// =========================================================================
+	float DistanceDelta = CurrentLocation.X - StartX;
+	DistanceMeters = FMath::Max(0, FMath::RoundToInt(DistanceDelta / 100.0f));
+
+	// =========================================================================
+	// èƒŒæ™¯è§†å·®ä¼˜åŒ– - ä½¿ç”¨ç¼“å­˜çš„ç»„ä»¶æŒ‡é’ˆï¼Œé¿å…æ¯å¸§é‡å¤è·å–RootComponent
+	// =========================================================================
+	for (USceneComponent* RootComp : CachedBackgroundRootComponents)
+	{
+		if (RootComp)
+		{
+			FVector CurrentBgLoc = RootComp->GetComponentLocation();
+			CurrentBgLoc.X = CurrentLocation.X;
+			RootComp->SetWorldLocation(CurrentBgLoc, false, nullptr, ETeleportType::TeleportPhysics);
+		}
+	}
+
+	// --- ç‹‚æš´æ¨¡å¼æŒç»­éœ‡åŠ¨ï¼ˆç”¨æ­£å¼¦æ³¢åšè„‰å†²èŠ‚å¥ï¼‰ ---
+	if (bIsFeverModeActive && CoinCollectShakeClass)
+	{
+		float ShakeTime = GetWorld()->GetTimeSeconds() * 3.0f;
+		float ShakePulse = (FMath::Sin(ShakeTime) * 0.5f + 0.5f); // 0~1 ä¹‹é—´è„‰å†²
+		float FinalShakeScale = FeverContinuousShakeScale * (0.6f + ShakePulse * 0.4f);
+		PlayCameraShake(CoinCollectShakeClass, FinalShakeScale);
+	}
 }
 
 // Called to bind functionality to input
@@ -74,58 +312,220 @@ void ARunner::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
+
 void ARunner::MoveLeft()
 {
-	// Èç¹ûµ±Ç°¹ìµÀ´óÓÚ0£¨¼´ÔÚÖĞ¼ä»òÓÒ±ß£©£¬ÔÊĞíÏò×ó±äµÀ
+	if (bIsDead) return;
+
 	if (CurrentLane > 0)
 	{
 		CurrentLane--;
-		// ¼ÆËãĞÂµÄÄ¿±ê Y ×ø±ê£ºÖĞ¼ä¹ìµÀµÄ»ù×¼ Y ¼õÈ¥Ò»¸ö¹ìµÀ¿í¶È
 		TargetY -= LaneWidth;
 	}
 }
+
 void ARunner::MoveRight()
 {
-	// Èç¹ûµ±Ç°¹ìµÀĞ¡ÓÚ2£¨¼´ÔÚ×ó±ß»òÖĞ¼ä£©£¬ÔÊĞíÏòÓÒ±äµÀ
+	if (bIsDead) return;
+
 	if (CurrentLane < 2)
 	{
 		CurrentLane++;
-		// ¼ÆËãĞÂµÄÄ¿±ê Y ×ø±ê£ºÖĞ¼ä¹ìµÀµÄ»ù×¼ Y ¼ÓÉÏÒ»¸ö¹ìµÀ¿í¶È
 		TargetY += LaneWidth;
 	}
 }
 
-void ARunner::AddCoin()
+// =========================================================================
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Combo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Fever ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½
+// =========================================================================
+void ARunner::AddCoin(int32 Amount)
 {
-	CoinCount++;
-	// ¿ÉÑ¡£ºÔÚ×óÉÏ½Ç´òÓ¡µ÷ÊÔĞÅÏ¢£¬·½±ãÎÒÃÇ²âÊÔ
-	UE_LOG(LogTemp, Warning, TEXT("Coins Collected: %d"), CoinCount);
-	if (GEngine)
+	if (bIsDead) return;
+
+	CoinCount += Amount;
+
+	// 1. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	CurrentComboCount++;
+
+	// ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ 2.0s ï¿½ï¿½ï¿½ï¿½Ë¥ï¿½ß¼ï¿½Ê±ï¿½ï¿½
+	GetWorldTimerManager().ClearTimer(ComboResetTimerHandle);
+	GetWorldTimerManager().SetTimer(ComboResetTimerHandle, this, &ARunner::ResetCombo, ComboValidWindow, false);
+
+	// 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô½ï¿½ß£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÒµÃ·ï¿½Ô½ï¿½ï¿½ï¿½Ç£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù³ï¿½ 3 ï¿½ï¿½ï¿½ï¿½
+	int32 ComboMultiplier = 1;
+	if (CurrentComboCount >= 10) ComboMultiplier = 3;
+	else if (CurrentComboCount >= 5) ComboMultiplier = 2;
+
+	// 3. ï¿½ñ±©³ï¿½ï¿½ï¿½
+	int32 FeverMultiplier = bIsFeverModeActive ? 2 : 1;
+
+	// ï¿½Û¼ï¿½ï¿½Ü·ï¿½
+	int32 CoinEarnedScore = Amount * ScorePerCoinUnit * ComboMultiplier * FeverMultiplier;
+	AccumulativeCoinScore += CoinEarnedScore;
+
+	// ï¿½ã²¥ Combo ×´Ì¬ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ UI ï¿½ï¿½Ì¬ Combo Í¼ï¿½ï¿½ï¿½ï¿½
+	OnComboUpdatedBP(CurrentComboCount);
+
+	// 4. ï¿½Ğ¶ï¿½ï¿½Ç·ñ¼¤»ï¿½ï¿½ Fever Mode
+	if (!bIsFeverModeActive && CurrentComboCount >= FeverComboThreshold)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, FString::Printf(TEXT("Coins: %d"), CoinCount));
+		bIsFeverModeActive = true;
+
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ñ±©´ï¿½ï¿½Ğµï¿½ï¿½ï¿½Ê±
+		GetWorldTimerManager().SetTimer(FeverDurationTimerHandle, this, &ARunner::DeactivateFeverMode, FeverModeDuration, false);
+
+		// ï¿½ï¿½ï¿½ï¿½È¨Ò»ï¿½ï¿½ï¿½Ô¶ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½È¦ï¿½ï¿½ï¿½ï¿½ï¿½×¼ï¿½ï¿½î³¬ï¿½Ü´ï¿½Î§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if (MagnetSphere)
+		{
+			MagnetSphere->SetSphereRadius(1500.0f); // ï¿½ï¿½Î§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1500
+			MagnetSphere->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+			MagnetSphere->SetGenerateOverlapEvents(true);
+
+			// Ë²ï¿½ä½«ï¿½ï¿½ï¿½ï¿½Î§ï¿½ï¿½ï¿½Ñ´ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½Ğ½ï¿½ï¿½Ë²ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			TArray<AActor*> OverlappingActors;
+			MagnetSphere->GetOverlappingActors(OverlappingActors, ACoin::StaticClass());
+			for (AActor* Actor : OverlappingActors)
+			{
+				ACoin* OverlappedCoin = Cast<ACoin>(Actor);
+				if (OverlappedCoin)
+				{
+					OverlappedCoin->AttractTo(this);
+				}
+			}
+		}
+
+		// ç‹‚æš´æ¿€æ´»ç¬é—´å¼ºéœ‡
+		PlayCameraShake(DeathShakeClass, FeverActivationShakeScale);
+
+		// ï¿½ã²¥ï¿½ï¿½ï¿½ï¿½Í¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½Ùºï¿½ï¿½ï¿½ï¿½È£ï¿½
+		OnFeverModeActivatedBP();
 	}
+
+	// ï¿½ï¿½ï¿½Å³Ô½ï¿½Òµï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½
+	PlayCameraShake(CoinCollectShakeClass, 0.6f);
 }
 
+void ARunner::ResetCombo()
+{
+	CurrentComboCount = 0;
+	OnComboResetBP(); // Í¨Öªï¿½ï¿½Í¼
+}
+
+void ARunner::DeactivateFeverMode()
+{
+	bIsFeverModeActive = false;
+
+	// ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
+	if (!bIsMagnetActive)
+	{
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ï¿½Ø±Õ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¦
+		if (MagnetSphere)
+		{
+			MagnetSphere->SetCollisionProfileName(TEXT("NoCollision"));
+			MagnetSphere->SetGenerateOverlapEvents(false);
+		}
+	}
+	else
+	{
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ğ§ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø±ï¿½×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§
+		if (MagnetSphere)
+		{
+			MagnetSphere->SetSphereRadius(MagnetRadius);
+		}
+	}
+
+	OnFeverModeDeactivatedBP(); // Í¨Öªï¿½ï¿½Í¼ï¿½ï¿½Ğ§Ï¨ï¿½ï¿½
+
+}
 
 void ARunner::Die()
 {
-	if (bIsDead) return; // ·ÀÖ¹ÖØ¸´ËÀÍö´¥·¢
+	if (bIsDead) return;
 
 	bIsDead = true;
 
-	// Í£Ö¹ËùÓĞÒÆ¶¯
 	GetCharacterMovement()->DisableMovement();
 
-	// µ÷ÊÔĞÅÏ¢£ºÔÚÆÁÄ»ÉÏ´òÓ¡ËÀÍöÌáÊ¾
-	/*if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("WASTED! You hit an obstacle."));
-	}*/
-	// ´¥·¢À¶Í¼ÊÂ¼ş
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+	GetWorldTimerManager().ClearTimer(MagnetTimerHandle);
+	GetWorldTimerManager().ClearTimer(ComboResetTimerHandle);
+	GetWorldTimerManager().ClearTimer(FeverDurationTimerHandle);
+
+	PlayCameraShake(DeathShakeClass, 1.5f);
+
 	OnPlayerDiedBP();
 
-	if (GEngine)
+}
+
+// ï¿½Ş¸Ä£ï¿½ï¿½Ûºï¿½ï¿½ÜµÃ·Ö¼ï¿½ï¿½ã¹«Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½Ã·ï¿½ + ï¿½ï¿½ï¿½ï¿½ï¿½Û¼Ó½ï¿½ÒµÃ·ï¿½)
+int32 ARunner::GetTotalScore() const
+{
+	return (DistanceMeters * ScorePerMeter) + AccumulativeCoinScore;
+}
+
+void ARunner::PlayCameraShake(TSubclassOf<UCameraShakeBase> ShakeClass, float Scale)
+{
+	if (ShakeClass)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("WASTED! You hit an obstacle."));
+		APlayerController* PC = Cast<APlayerController>(GetController());
+		if (PC && PC->PlayerCameraManager)
+		{
+			PC->PlayerCameraManager->StartCameraShake(ShakeClass, Scale);
+		}
+	}
+}
+
+void ARunner::ActivateMagnet()
+{
+	if (bIsDead) return;
+
+	bIsMagnetActive = true;
+
+	GetWorldTimerManager().SetTimer(MagnetTimerHandle, this, &ARunner::DeactivateMagnet, MagnetDuration, false);
+
+	// ï¿½ï¿½ï¿½Ú·Ç¿ï¿½Ä£Ê½ï¿½Â²ï¿½ï¿½ï¿½ï¿½ï¿½ë¾¶ï¿½ï¿½ï¿½ï¿½Îªï¿½ñ±©³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§ï¿½ï¿½ï¿½ï¿½
+	if (MagnetSphere && !bIsFeverModeActive)
+	{
+		MagnetSphere->SetSphereRadius(MagnetRadius);
+		MagnetSphere->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+		MagnetSphere->SetGenerateOverlapEvents(true);
+
+		TArray<AActor*> OverlappingActors;
+		MagnetSphere->GetOverlappingActors(OverlappingActors, ACoin::StaticClass());
+		for (AActor* Actor : OverlappingActors)
+		{
+			ACoin* OverlappedCoin = Cast<ACoin>(Actor);
+			if (OverlappedCoin)
+			{
+				OverlappedCoin->AttractTo(this);
+			}
+		}
+	}
+
+}
+
+void ARunner::DeactivateMagnet()
+{
+	bIsMagnetActive = false;
+
+	// ï¿½ï¿½ï¿½ï¿½ñ±©»ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½Ø±Õ¼ï¿½ï¿½È¦
+	if (!bIsFeverModeActive && MagnetSphere)
+	{
+		MagnetSphere->SetCollisionProfileName(TEXT("NoCollision"));
+		MagnetSphere->SetGenerateOverlapEvents(false);
+	}
+
+}
+
+void ARunner::OnMagnetSphereOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½Ä¿ï¿½ï¿½Îªï¿½ï¿½Ò£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if ((bIsMagnetActive || bIsFeverModeActive) && OtherActor && OtherActor->IsA(ACoin::StaticClass()))
+	{
+		ACoin* Coin = Cast<ACoin>(OtherActor);
+		if (Coin)
+		{
+			Coin->AttractTo(this);
+		}
 	}
 }

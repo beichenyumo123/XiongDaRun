@@ -6,9 +6,20 @@
 #include "GameFramework/Character.h"
 #include "Runner.generated.h"
 
-// Ç°ÏòÉùÃ÷ÉãÏñ»ú×é¼ş
+// å‰å‘å£°æ˜
 class USpringArmComponent;
 class UCameraComponent;
+class USphereComponent;
+class UCameraShakeBase;
+class UCurveFloat; // éš¾åº¦æ›²çº¿
+
+// éš¾åº¦æ›²çº¿è¯„ä¼°æ¨¡å¼
+UENUM(BlueprintType)
+enum class ESpeedCurveMode : uint8
+{
+	Time       UMETA(DisplayName = "åŸºäºæ—¶é—´ (Time)"),
+	Distance   UMETA(DisplayName = "åŸºäºè·ç¦» (Distance)")
+};
 
 UCLASS()
 class XIONGDARUN_V2_API ARunner : public ACharacter
@@ -23,13 +34,13 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	// --- À¶Í¼¿Éµ÷ÓÃµÄ¿ØÖÆ½Ó¿Ú ---
+	// --- ï¿½ï¿½Í¼ï¿½Éµï¿½ï¿½ÃµÄ¿ï¿½ï¿½Æ½Ó¿ï¿½ ---
 
 	UFUNCTION(BlueprintCallable, Category = "Runner|Movement")
 	void MoveLeft();
@@ -37,30 +48,51 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Runner|Movement")
 	void MoveRight();
 
-	// --- ĞÂÔö£º½ğ±ÒÊÕ¼¯Âß¼­ ---
+	// --- ï¿½Ş¸Ä£ï¿½Ö§ï¿½Ö´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½Öµï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ñ±©³ï¿½ï¿½ï¿½ ---
 	UFUNCTION(BlueprintCallable, Category = "Runner|Score")
-	void AddCoin();
+	void AddCoin(int32 Amount = 1);
 
-	// »ñÈ¡µ±Ç°½ğ±ÒÊı (BlueprintPure ±íÊ¾ÕâÊÇÒ»¸öÃ»ÓĞÈÎºÎ¸±×÷ÓÃµÄÖ»¶Á»ñÈ¡½Úµã£¬´¿ÂÌÉ«½Úµã)
+	// ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ (BlueprintPure ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½È¡ï¿½Úµï¿½)
 	UFUNCTION(BlueprintPure, Category = "Runner|Score")
 	int32 GetCoinCount() const { return CoinCount; }
 
-	// ±ê¼ÇÖ÷½ÇÊÇ·ñËÀÍö
+	// --- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã·ï¿½ÏµÍ³ ---
+
+	// ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½Ü¹ï¿½ï¿½Ä¾ï¿½ï¿½ë£¨ï¿½×£ï¿½
+	UFUNCTION(BlueprintPure, Category = "Runner|Score")
+	int32 GetDistanceRun() const { return DistanceMeters; }
+
+	// ï¿½ï¿½È¡ï¿½Ûºï¿½ï¿½Ü·Ö£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ï¿½Ó³É½ï¿½Ò·Ö£ï¿½
+	UFUNCTION(BlueprintPure, Category = "Runner|Score")
+	int32 GetTotalScore() const;
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsDead = false;
 
-	// ËÀÍö´¦Àíº¯Êı£¬±©Â¶¸øÀ¶Í¼ÒÔ±ãºóĞø¿ÉÒÔ´¥·¢ËÀÍöUI
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶ï¿½ï¿½ï¿½ï¿½Í¼ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½UI
 	UFUNCTION(BlueprintCallable, Category = "State")
 	void Die();
 
-
-	// --- ĞÂÔö£ºÍ¨ÖªÀ¶Í¼Íæ¼ÒÒÑËÀÍö£¬ÓÃÓÚµ¯³ö UI ---
+	// --- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨Öªï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ UI ---
 	UFUNCTION(BlueprintImplementableEvent, Category = "Runner|Events")
 	void OnPlayerDiedBP();
 
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½Ã£ï¿½
+	UFUNCTION(BlueprintCallable, Category = "Runner|Powerups")
+	void ActivateMagnet();
+
+	// Ï¨ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	void DeactivateMagnet();
+
+	// ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ç·ï¿½ï¿½ï¿½
+	UFUNCTION(BlueprintPure, Category = "Runner|Powerups")
+	bool bIsMagnetActiveState() const { return bIsMagnetActive; }
+
+
 protected:
 
-	// --- ĞÂÔö£ºÉãÏñ»úÓëµ¯»É±Û ---
+	// --- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ëµ¯ï¿½É±ï¿½ ---
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* CameraBoom;
@@ -68,27 +100,232 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FollowCamera;
 
-	// --- ºËĞÄ×´Ì¬Óë²ÎÊıÅäÖÃ ---
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	USphereComponent* MagnetSphere;
 
-	// µ±Ç°¹ìµÀ£º0=×ó, 1=ÖĞ, 2=ÓÒ¡£Ä¬ÈÏÉú³ÉÔÚÖĞ¼ä¡£
+	// --- ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---
+
+	// ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½0=ï¿½ï¿½, 1=ï¿½ï¿½, 2=ï¿½Ò¡ï¿½Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ¼ä¡£
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runner|State")
 	int32 CurrentLane;
 
-	// ¹ìµÀÖ®¼äµÄ¿í¶È¾àÀë (Äã¿ÉÒÔ¸ù¾İÄãÅÜµÀÄ£ĞÍµÄÊµ¼Ê¿í¶ÈÔÚÀ¶Í¼ÖĞµ÷Õû)
+	// ï¿½ï¿½ï¿½Ö®ï¿½ï¿½Ä¿ï¿½ï¿½È¾ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½Ô¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Üµï¿½Ä£ï¿½Íµï¿½Êµï¿½Ê¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½Ğµï¿½ï¿½ï¿½)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Config")
 	float LaneWidth;
 
-	// ±äµÀµÄÆ½»¬¹ı¶ÉËÙ¶È
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Config")
 	float SwitchLaneInterpSpeed;
 
-	// ĞÂÔö£ºÏòÇ°µÄ»ù´¡±¼ÅÜËÙ¶È±¶ÂÊ (ÓÃÓÚÎ¢µ÷£¬Êµ¼ÊËÙ¶ÈÖ÷ÒªÊÜ CharacterMovement µÄ MaxWalkSpeed Ó°Ïì)
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È±ï¿½ï¿½ï¿½
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Config")
 	float ForwardRunSpeed;
-	// ĞÂÔö£º¼ÇÂ¼³Ôµ½µÄ½ğ±Ò×ÜÊı
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Ôµï¿½ï¿½Ä½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runner|Score")
 	int32 CoinCount = 0;
+
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ä£¨ï¿½ë£©
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Config|Magnet")
+	float MagnetDuration = 8.0f;
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§ï¿½ë¾¶
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Config|Magnet")
+	float MagnetRadius = 800.0f;
+
+	// ï¿½ï¿½Çµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runner|State|Magnet")
+	bool bIsMagnetActive = false;
+
+	// =========================================================================
+	// --- éš¾åº¦æ›²çº¿é…ç½®ï¼ˆæ”¯æŒéçº¿æ€§é€Ÿåº¦å¢é•¿ï¼‰ ---
+	// =========================================================================
+
+	// åˆå§‹/æœ€ä½å¥”è·‘é€Ÿåº¦ï¼ˆå˜ç±³/ç§’ï¼‰
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed")
+	float MinSpeedLimit = 700.0f;
+
+	// æœ€é«˜å¥”è·‘é€Ÿåº¦ä¸Šé™ï¼ˆå˜ç±³/ç§’ï¼‰
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed")
+	float MaxSpeedLimit = 1800.0f;
+
+	// é€Ÿåº¦éšæ—¶é—´å¢é•¿çš„åŠ é€Ÿåº¦ï¼ˆæ¯ç§’å¢åŠ å¤šå°‘å˜ç±³/ç§’ï¼‰
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed")
+	float SpeedAccelerationRate = 18.0f;
+
+	// è®°å½•å½“å‰çš„å®é™…ç§»åŠ¨é€Ÿåº¦
+	float CurrentMaxWalkSpeed;
+
+	// --- éš¾åº¦æ›²çº¿é…ç½® ---
+
+	// æ›²çº¿è¯„ä¼°æ¨¡å¼
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed|Curve")
+	ESpeedCurveMode SpeedCurveMode = ESpeedCurveMode::Time;
+
+	// æ˜¯å¦ä½¿ç”¨éš¾åº¦æ›²çº¿ï¼ˆå¦‚æœä¸ºfalseï¼Œä½¿ç”¨çº¿æ€§åŠ é€Ÿåº¦ï¼‰
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed|Curve")
+	bool bUseDifficultyCurve = false;
+
+	// éš¾åº¦æ›²çº¿èµ„äº§ï¼ˆXè½´ä¸ºæ—¶é—´/è·ç¦»ï¼ŒYè½´ä¸ºé€Ÿåº¦å€ç‡0-1ï¼‰
+	// æ›²çº¿å€¼0è¡¨ç¤ºMinSpeedLimitï¼Œ1è¡¨ç¤ºMaxSpeedLimit
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed|Curve", meta = (EditCondition = "bUseDifficultyCurve"))
+	UCurveFloat* DifficultyCurve = nullptr;
+
+	// æ›²çº¿è¯„ä¼°çš„æ—¶é—´/è·ç¦»ç¼©æ”¾ï¼ˆæ§åˆ¶æ›²çº¿æ’­æ”¾é€Ÿåº¦ï¼‰
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed|Curve", meta = (EditCondition = "bUseDifficultyCurve"))
+	float CurveTimeScale = 1.0f;
+
+	// æ›²çº¿è¯„ä¼°çš„æ—¶é—´/è·ç¦»åç§»ï¼ˆæ§åˆ¶æ›²çº¿å¼€å§‹æ—¶é—´ï¼‰
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed|Curve", meta = (EditCondition = "bUseDifficultyCurve"))
+	float CurveTimeOffset = 0.0f;
+
+	// æ›²çº¿æ’å€¼å¹³æ»‘é€Ÿåº¦ï¼ˆå€¼è¶Šå¤§ï¼Œè·Ÿéšæ›²çº¿è¶Šå¿«ï¼‰
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Speed|Curve", meta = (EditCondition = "bUseDifficultyCurve"))
+	float CurveInterpSpeed = 5.0f;
+
+	// ï¿½ï¿½Ê¼ Y ï¿½ï¿½ï¿½Öµï¿½Ù¶È£ï¿½ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	float InitialSwitchLaneInterpSpeed;
+
+	// ï¿½ï¿½Â¼ï¿½Ü²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ X ï¿½ï¿½ï¿½ï¿½
+	float StartX;
+
+	// ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½Ü¿ï¿½ï¿½ï¿½ë£¨ï¿½×£ï¿½
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runner|Score")
+	int32 DistanceMeters = 0;
+
+	// Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù·ï¿½
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Score")
+	int32 ScorePerMeter = 10;
+
+	// Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Score")
+	int32 ScorePerCoinUnit = 100;
+
+	// ï¿½Û¼ÓµÄ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã·ï¿½
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runner|Score")
+	int32 AccumulativeCoinScore = 0;
+
+	// --- ï¿½Ó¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ì£¨FOVï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½ï¿½ÂµÄ»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ FOV
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice")
+	float BaseFOV = 90.0f;
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ FOVï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ£ï¿½
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice")
+	float MaxSpeedFOV = 110.0f;
+
+	// ï¿½Ô½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Î¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice")
+	TSubclassOf<UCameraShakeBase> CoinCollectShakeClass;
+
+	// ×²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice")
+	TSubclassOf<UCameraShakeBase> DeathShakeClass;
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Ş¸ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ä´ï¿½É½ Actor ï¿½ï¿½ï¿½ï¿½
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Background")
+	TArray<AActor*> BackgroundActors;
+
+	// ç¼“å­˜èƒŒæ™¯Actorçš„æ ¹ç»„ä»¶æŒ‡é’ˆï¼Œé¿å…æ¯å¸§é‡å¤è·å–ï¼ˆæ€§èƒ½ä¼˜åŒ–ï¼‰
+	UPROPERTY()
+	TArray<USceneComponent*> CachedBackgroundRootComponents;
+
+	// =========================================================================
+	// --- ï¿½ï¿½ï¿½Õ±ï¿½ï¿½ã£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã¡¢ï¿½ï¿½ï¿½ï¿½Comboï¿½ï¿½ï¿½ï¿½FeverMode ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---
+	// =========================================================================
+
+	// 1. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Lean")
+	float CameraLeanSensitivity = 0.025f; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ÖµÔ½ï¿½ï¿½ï¿½ï¿½Ğ±Ô½ï¿½ï¿½ï¿½ï¿½
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Lean")
+	float MaxCameraLeanRoll = 6.0f; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Roll ï¿½Ç¶ï¿½ï¿½ï¿½ï¿½ï¿½
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Lean")
+	float CameraLeanInterpSpeed = 8.0f; // ï¿½ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½
+
+	// 2. ï¿½ï¿½ï¿½ï¿½ Combo ï¿½ï¿½ï¿½ï¿½
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runner|Juice|Combo")
+	int32 CurrentComboCount = 0;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Juice|Combo")
+	float ComboValidWindow = 2.0f; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½Ğ¶ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ä£¨ï¿½ë£©
+
+	FTimerHandle ComboResetTimerHandle; // ï¿½ï¿½ï¿½ï¿½Ê§Ğ§ï¿½ï¿½Ê±ï¿½ï¿½
+
+	// 3. ï¿½ï¿½ Fever Mode ï¿½ï¿½ï¿½ï¿½
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runner|Juice|Fever")
+	bool bIsFeverModeActive = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Juice|Fever")
+	float FeverModeDuration = 5.00f; // ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ä£¨ï¿½ë£©
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Runner|Juice|Fever")
+	int32 FeverComboThreshold = 10; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ Combo ï¿½Å¼ï¿½ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+
+	FTimerHandle FeverDurationTimerHandle; // ï¿½ñ±©µï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+
+	// --- ç‹‚æš´æ¨¡å¼è§†è§‰å¢å¼º ---
+
+	// FeveræœŸé—´FOVè„‰å†²æ•ˆæœ
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Fever|Visual")
+	float FeverFOVBoost = 130.0f; // Feveræ¿€æ´»æ—¶çš„FOVå³°å€¼
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Fever|Visual")
+	float FeverFOVPulseSpeed = 6.0f; // FOVè„‰å†²é¢‘ç‡ï¼ˆè¶Šå¤§è¶Šå¿«ï¼‰
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Fever|Visual")
+	float FeverFOVPulseAmount = 5.0f; // FOVè„‰å†²å¹…åº¦ï¼ˆÂ±å€¼ï¼‰
+
+	// FeveræœŸé—´é€Ÿåº¦çˆ†å‘
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Fever|Visual")
+	float FeverSpeedBoostMultiplier = 1.3f; // FeveræœŸé—´é€Ÿåº¦å€ç‡ï¼ˆ1.3 = 30%åŠ é€Ÿï¼‰
+
+	// FeveræœŸé—´æŒç»­éœ‡åŠ¨å¼ºåº¦
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Fever|Visual")
+	float FeverContinuousShakeScale = 0.15f; // æŒç»­ä½é¢‘éœ‡åŠ¨å¼ºåº¦
+
+	// Feveræ¿€æ´»ç¬é—´éœ‡åŠ¨å¼ºåº¦
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Runner|Juice|Fever|Visual")
+	float FeverActivationShakeScale = 1.2f; // æ¿€æ´»ç¬é—´çš„å¼ºéœ‡
+
+	// --- ï¿½ï¿½Í¼Í¨Öªï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ©ï¿½ï¿½ï¿½ã²¥ï¿½Å¼ï¿½ï¿½ï¿½ï¿½Å¿ï¿½ï¿½ï¿½Ó¾ï¿½ï¿½ï¿½Ğ§ ---
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½ UI ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÄ¡ï¿½Combo x5!ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½Ö·Å´ó¶¶¶ï¿½ï¿½ï¿½
+	UFUNCTION(BlueprintImplementableEvent, Category = "Runner|Events|Juice")
+	void OnComboUpdatedBP(int32 NewCombo);
+
+	// ï¿½ï¿½ï¿½ï¿½Ê§Ğ§ï¿½Â¼ï¿½ï¿½ï¿½UI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	UFUNCTION(BlueprintImplementableEvent, Category = "Runner|Events|Juice")
+	void OnComboResetBP();
+
+	// ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½É«ï¿½Åµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¿ï¿½ï¿½/ï¿½ï¿½Ä»ï¿½ï¿½Ôµï¿½ï¿½ï¿½ï¿½/ï¿½ñ±©±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ»ï¿½ï¿½ï¿½
+	UFUNCTION(BlueprintImplementableEvent, Category = "Runner|Events|Juice")
+	void OnFeverModeActivatedBP();
+
+	// ï¿½ñ±©½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½
+	UFUNCTION(BlueprintImplementableEvent, Category = "Runner|Events|Juice")
+	void OnFeverModeDeactivatedBP();
+
 private:
-	// Ä¿±ê Y Öá×ø±ê£¨ÎÒÃÇ¼ÙÉèÅÜ¿áÊÇÑØ×Å X ÖáÏòÇ°ÅÜ£¬ËùÒÔ×óÓÒÆ½ÒÆ¸Ä±äµÄÊÇ Y Öá£©
+	// Ä¿ï¿½ï¿½ Y ï¿½ï¿½ï¿½ï¿½ï¿½ê£¨ï¿½ï¿½ï¿½ï¿½Æ½ï¿½Æ¸Ä±ï¿½ï¿½ï¿½ï¿½ Y ï¿½á£©
 	float TargetY;
+
+	// ï¿½ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½
+	FTimerHandle MagnetTimerHandle;
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×²ï¿½Øµï¿½ï¿½ï¿½ï¿½ï¿½âµ½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	UFUNCTION()
+	void OnMagnetSphereOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	// ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	void PlayCameraShake(TSubclassOf<UCameraShakeBase> ShakeClass, float Scale = 1.0f);
+
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú»Øµï¿½
+	void ResetCombo();
+
+	// ï¿½ñ±©½ï¿½ï¿½ï¿½ï¿½Øµï¿½
+	void DeactivateFeverMode();
 };

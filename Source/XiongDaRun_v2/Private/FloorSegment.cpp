@@ -10,13 +10,14 @@
 #include "WordGenerate.h"            // 引入我们的 GameMode
 #include "Coin.h" 
 #include "ObstacleBase.h"
+#include "MagnetItem.h"              // 引入新建的磁铁头文件
 #include "Components/HierarchicalInstancedStaticMeshComponent.h" // 引入 HISM
 
 // Sets default values
 AFloorSegment::AFloorSegment()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+    // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+    PrimaryActorTick.bCanEverTick = false;
 
     // 初始化根组件
     USceneComponent* RootComp = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
@@ -24,16 +25,16 @@ AFloorSegment::AFloorSegment()
 
     // 初始化跑道网格体
     FloorMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FloorMesh"));
-    FloorMesh->SetupAttachment(RootComponent);
+    FloorMesh->SetupAttachment(RootComp);
 
     // 初始化附着点 (用于连接下一个跑道)
     AttachPoint = CreateDefaultSubobject<USceneComponent>(TEXT("AttachPoint"));
-    AttachPoint->SetupAttachment(RootComponent);
+    AttachPoint->SetupAttachment(RootComp);
     // 注意：默认情况下 AttachPoint 只是一个点，你需要在蓝图中将其移动到跑道模型的末端。
 
     // --- 新增：初始化触发器 ---
     TriggerBox = CreateDefaultSubobject<UBoxComponent>(TEXT("TriggerBox"));
-    TriggerBox->SetupAttachment(RootComponent);
+    TriggerBox->SetupAttachment(RootComp);
     // 设置碰撞预设为 Trigger (只检测重叠，不产生物理阻挡)
     TriggerBox->SetCollisionProfileName(TEXT("Trigger"));
 
@@ -42,14 +43,14 @@ AFloorSegment::AFloorSegment()
 // Called when the game starts or when spawned
 void AFloorSegment::BeginPlay()
 {
-	Super::BeginPlay();
+    Super::BeginPlay();
     // 在游戏开始时，将我们的 C++ 函数绑定到触发器的“开始重叠”事件上
     if (TriggerBox)
     {
         TriggerBox->OnComponentBeginOverlap.AddDynamic(this, &AFloorSegment::OnTriggerBoxOverlap);
     }
     // --- 核心修改：动态创建 HISM 组件池 ---
-// 根据蓝图中配置的模型数组，动态创建对应的 HISM 组件
+    // 根据蓝图中配置的模型数组，动态创建对应的 HISM 组件
     for (UStaticMesh* Mesh : EnvironmentMeshes)
     {
         if (Mesh)
@@ -72,7 +73,7 @@ void AFloorSegment::BeginPlay()
 // Called every frame
 void AFloorSegment::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+    Super::Tick(DeltaTime);
 
 }
 
@@ -112,57 +113,89 @@ FTransform AFloorSegment::GetAttachTransform() const
     return GetActorTransform();
 }
 
-
+// --- 核心修改：使用数组随机生成金币 ---
 void AFloorSegment::SpawnItems(bool bIsSafeZone)
 {
     if (!GetWorld()) return;
 
-    float Spacing = FloorLength / (SpawnRows + 1);
-
-    for (int32 Row = 1; Row <= SpawnRows; Row++)
+    // 1. 如果是安全区（前几段跑道），只在中间生成少量金币作为引导
+    if (bIsSafeZone)
     {
-        int32 ObstacleCount = 0;
+        float SafeSpacing = FloorLength / (SpawnRows + 1);
+        for (int32 Row = 1; Row <= SpawnRows; Row++)
+        {
+            // 如果配置了金币库，则随机挑一个金币类生成
+            if (CoinClasses.Num() > 0 && FMath::FRand() < 0.5f)
+            {
+                int32 RandomCoinIndex = FMath::RandRange(0, CoinClasses.Num() - 1);
+                TSubclassOf<ACoin> SelectedCoinClass = CoinClasses[RandomCoinIndex];
 
+                if (SelectedCoinClass)
+                {
+                    FVector LocalLocation(SafeSpacing * Row, 0.0f, 40.0f);
+                    FVector WorldLocation = GetActorTransform().TransformPosition(LocalLocation);
+                    GetWorld()->SpawnActor<ACoin>(SelectedCoinClass, WorldLocation, FRotator::ZeroRotator);
+                }
+            }
+        }
+        return;
+    }
+
+    // 2. 非安全区：抽取一个完整的区块预制件（Chunk）
+    if (ChunkPatterns.Num() == 0) return;
+
+    // 随机抽取一个区块剧本（例如：波浪金币组、左躲右闪障碍组）
+    int32 RandomChunkIndex = FMath::RandRange(0, ChunkPatterns.Num() - 1);
+    FChunkSpawnPattern SelectedChunk = ChunkPatterns[RandomChunkIndex];
+
+    // 实际生成的排数取决于你在蓝图里为这个 Chunk 配置了多少排
+    int32 ActualRows = SelectedChunk.Rows.Num();
+    if (ActualRows == 0) return;
+
+    // 动态计算行间距，确保整个区块均匀分布在这段跑道上
+    float Spacing = FloorLength / (ActualRows + 1);
+
+    for (int32 RowIndex = 0; RowIndex < ActualRows; RowIndex++)
+    {
+        FRowSpawnPattern CurrentPattern = SelectedChunk.Rows[RowIndex];
+        int32 Row = RowIndex + 1;
+
+        // 解析当前排的左中右轨道
         for (int32 Lane = 0; Lane < 3; Lane++)
         {
-            bool bSpawnObstacle = false;
-            bool bSpawnCoin = false;
+            if (Lane < CurrentPattern.LaneItems.Num())
+            {
+                ESpawnItemType ItemToSpawn = CurrentPattern.LaneItems[Lane];
 
-            //核心修改：检查 ObstacleClasses 数组里是否有东西
-            if (!bIsSafeZone && ObstacleClasses.Num() > 0 && ObstacleCount < 2 && FMath::FRand() < 0.2f)
-            {
-                bSpawnObstacle = true;
-                ObstacleCount++;
-            }
-            // 金币不受安全区影响，一开始就可以吃金币
-            else if (CoinClass && FMath::FRand() < 0.4f)
-            {
-                bSpawnCoin = true;
-            }
-
-            // --- 开始生成物体 ---
-            if (bSpawnObstacle || bSpawnCoin)
-            {
                 float YOffset = (Lane - 1) * LaneWidth;
-
-                // Z=50 是为了防止穿模，如果障碍物模型比较高，你可以在蓝图里调，或者这里再加高点
                 FVector LocalLocation(Spacing * Row, YOffset, 40.0f);
                 FVector WorldLocation = GetActorTransform().TransformPosition(LocalLocation);
 
-                if (bSpawnObstacle)
+                if (ItemToSpawn == ESpawnItemType::Obstacle && ObstacleClasses.Num() > 0)
                 {
                     int32 RandomIndex = FMath::RandRange(0, ObstacleClasses.Num() - 1);
                     TSubclassOf<AObstacleBase> SelectedObstacleClass = ObstacleClasses[RandomIndex];
 
-                    // 如果抽到的类不为空，才进行生成
                     if (SelectedObstacleClass)
                     {
                         GetWorld()->SpawnActor<AObstacleBase>(SelectedObstacleClass, WorldLocation, FRotator::ZeroRotator);
                     }
                 }
-                else if (bSpawnCoin)
+                // --- 修改：从金币数组里随机选一类金币生成 ---
+                else if (ItemToSpawn == ESpawnItemType::Coin && CoinClasses.Num() > 0)
                 {
-                    GetWorld()->SpawnActor<ACoin>(CoinClass, WorldLocation, FRotator::ZeroRotator);
+                    int32 RandomCoinIndex = FMath::RandRange(0, CoinClasses.Num() - 1);
+                    TSubclassOf<ACoin> SelectedCoinClass = CoinClasses[RandomCoinIndex];
+
+                    if (SelectedCoinClass)
+                    {
+                        GetWorld()->SpawnActor<ACoin>(SelectedCoinClass, WorldLocation, FRotator::ZeroRotator);
+                    }
+                }
+                // --- 新增：处理生成吸铁石道具逻辑 ---
+                else if (ItemToSpawn == ESpawnItemType::Magnet && MagnetClass)
+                {
+                    GetWorld()->SpawnActor<AMagnetItem>(MagnetClass, WorldLocation, FRotator::ZeroRotator);
                 }
             }
         }
